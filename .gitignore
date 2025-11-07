@@ -1,0 +1,23 @@
+deploy/.env
+
+# Go build artifacts
+bin/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Logs
+*.log
+
+# IDE folders
+.idea/
+.vscode/
+
+# Environment files
+.env
+*.env
