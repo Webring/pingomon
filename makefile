@@ -9,6 +9,11 @@ up:
 	@echo "→ Docker compose up"
 	@docker compose -f deploy/docker-compose.yaml up -d
 
+.PHONY: up-rebuild
+up-rebuild:
+	@echo "→ Docker compose up"
+	@docker compose -f deploy/docker-compose.yaml up -d --build
+
 .PHONY: prepare
 prepare:
 	@echo "→ Starting ClickHouse..."

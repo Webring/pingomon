@@ -100,6 +100,23 @@ func main() {
 
 	repository := storage.NewCheckRepository(clickHouseConnection)
 
+	pgPool, err := storage.NewPostgresPool(cfg.PostgresDSN)
+	if err != nil {
+		slog.Error("failed to connect Postgres", "err", err)
+		os.Exit(1)
+	}
+	defer pgPool.Close()
+
+	targetRepo := storage.NewTargetRepository(pgPool)
+	if err := targetRepo.EnsureSchema(context.Background()); err != nil {
+		slog.Error("failed to ensure targets table", "err", err)
+		os.Exit(1)
+	}
+
+	if len(cfg.Targets) > 0 {
+		seedTargets(context.Background(), targetRepo, cfg.Targets)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
@@ -113,7 +130,21 @@ func main() {
 		select {
 		case <-ticker.C:
 			var wg sync.WaitGroup
-			for _, targetURL := range cfg.Targets {
+			lookupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			targets, err := targetRepo.ListTargets(lookupCtx)
+			cancel()
+
+			if err != nil {
+				slog.Error("failed to fetch targets", "err", err)
+				continue
+			}
+
+			if len(targets) == 0 {
+				slog.Warn("no targets to ping")
+				continue
+			}
+
+			for _, targetURL := range targets {
 				wg.Add(1)
 				go func(url string) {
 					defer wg.Done()
@@ -127,4 +158,43 @@ func main() {
 			return
 		}
 	}
+}
+
+func seedTargets(ctx context.Context, repo *storage.TargetRepository, seeds []string) {
+	for _, raw := range seeds {
+		normalized, err := normalizeURL(raw)
+		if err != nil {
+			slog.Warn("skip invalid seed target", "url", raw, "err", err)
+			continue
+		}
+
+		_ = repo.AddTarget(ctx, normalized)
+	}
+}
+
+func normalizeURL(raw string) (string, error) {
+	if raw == "" {
+		return "", fmt.Errorf("empty url")
+	}
+
+	trimmed := strings.TrimSpace(raw)
+	if !strings.Contains(trimmed, "://") {
+		trimmed = "https://" + trimmed
+	}
+
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("parse: %w", err)
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", fmt.Errorf("unsupported scheme")
+	}
+
+	if u.Host == "" {
+		return "", fmt.Errorf("empty host")
+	}
+
+	u.Fragment = ""
+	return u.String(), nil
 }

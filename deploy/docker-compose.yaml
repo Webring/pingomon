@@ -1,6 +1,26 @@
 version: "3.9"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pingomon-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
   clickhouse:
     image: clickhouse/clickhouse-server:25.10-alpine
     container_name: pingomon-clickhouse
@@ -14,8 +34,8 @@ services:
       - ch_data:/var/lib/clickhouse
       - ./clickhouse/init:/docker-entrypoint-initdb.d
     ports:
-      - "8123:8123"   # HTTP
-      - "9000:9000"   # Native
+      - "8123:8123" # HTTP
+      - "9000:9000" # Native
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 5s
@@ -32,6 +52,8 @@ services:
     env_file:
       - .env
     depends_on:
+      postgres:
+        condition: service_healthy
       clickhouse:
         condition: service_healthy
     restart: unless-stopped
@@ -45,9 +67,12 @@ services:
     env_file:
       - .env
     depends_on:
+      postgres:
+        condition: service_healthy
       clickhouse:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
   ch_data:
+  pg_data:
