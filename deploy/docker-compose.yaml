@@ -73,6 +73,21 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  notification_worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: notifier
+    container_name: pingomon-notifier
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   ch_data:
   pg_data:

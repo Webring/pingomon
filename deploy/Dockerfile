@@ -6,7 +6,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /out/pingoworker ./cmd/ping_worker.go && \
-    CGO_ENABLED=0 go build -o /out/telegram-bot ./cmd/bot.go
+    CGO_ENABLED=0 go build -o /out/telegram-bot ./cmd/bot.go && \
+    CGO_ENABLED=0 go build -o /out/notification-worker ./cmd/notification_worker.go
 
 # worker image
 FROM gcr.io/distroless/base AS worker
@@ -20,3 +21,9 @@ FROM gcr.io/distroless/base AS bot
 WORKDIR /app
 COPY --from=builder /out/telegram-bot /app/telegram-bot
 ENTRYPOINT ["/app/telegram-bot"]
+
+# notification worker image
+FROM gcr.io/distroless/base AS notifier
+WORKDIR /app
+COPY --from=builder /out/notification-worker /app/notification-worker
+ENTRYPOINT ["/app/notification-worker"]

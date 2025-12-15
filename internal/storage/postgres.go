@@ -222,3 +222,34 @@ func (r *TargetRepository) findTargetID(ctx context.Context, url string) (int64,
 	}
 	return id, nil
 }
+
+func (r *TargetRepository) SubscribersByTargets(ctx context.Context, urls []string) (map[string][]int64, error) {
+	if len(urls) == 0 {
+		return map[string][]int64{}, nil
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		SELECT t.url, s.tg_user_id
+		FROM subscriptions s
+		JOIN targets t ON t.id = s.target_id
+		WHERE t.url = ANY($1)
+	`, urls)
+	if err != nil {
+		return nil, fmt.Errorf("select subscribers: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]int64)
+	for rows.Next() {
+		var url string
+		var uid int64
+		if err := rows.Scan(&url, &uid); err != nil {
+			return nil, fmt.Errorf("scan subscriber: %w", err)
+		}
+		result[url] = append(result[url], uid)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate subscribers: %w", err)
+	}
+	return result, nil
+}
