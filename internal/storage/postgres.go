@@ -97,6 +97,32 @@ func (r *TargetRepository) ListTargets(ctx context.Context) ([]string, error) {
 	return urls, nil
 }
 
+func (r *TargetRepository) ListActiveTargets(ctx context.Context) ([]string, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT DISTINCT t.url
+		FROM subscriptions s
+		JOIN targets t ON t.id = s.target_id
+		ORDER BY t.url ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("select active targets: %w", err)
+	}
+	defer rows.Close()
+
+	var urls []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, fmt.Errorf("scan active target: %w", err)
+		}
+		urls = append(urls, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate active targets: %w", err)
+	}
+	return urls, nil
+}
+
 func (r *TargetRepository) AddSubscription(ctx context.Context, tgUserID int64, url string) error {
 	targetID, err := r.ensureTarget(ctx, url)
 	if err != nil && !errors.Is(err, ErrTargetExists) {

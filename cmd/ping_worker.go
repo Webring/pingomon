@@ -113,10 +113,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(cfg.Targets) > 0 {
-		seedTargets(context.Background(), targetRepo, cfg.Targets)
-	}
-
 	ctx, stop := signal.NotifyContext(context.Background(),
 		os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
@@ -131,16 +127,16 @@ func main() {
 		case <-ticker.C:
 			var wg sync.WaitGroup
 			lookupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			targets, err := targetRepo.ListTargets(lookupCtx)
+			targets, err := targetRepo.ListActiveTargets(lookupCtx)
 			cancel()
 
 			if err != nil {
-				slog.Error("failed to fetch targets", "err", err)
+				slog.Error("failed to fetch active targets", "err", err)
 				continue
 			}
 
 			if len(targets) == 0 {
-				slog.Warn("no targets to ping")
+				slog.Warn("no active subscriptions to ping")
 				continue
 			}
 
@@ -157,18 +153,6 @@ func main() {
 			slog.Info("Service PingWorker stopped")
 			return
 		}
-	}
-}
-
-func seedTargets(ctx context.Context, repo *storage.TargetRepository, seeds []string) {
-	for _, raw := range seeds {
-		normalized, err := normalizeURL(raw)
-		if err != nil {
-			slog.Warn("skip invalid seed target", "url", raw, "err", err)
-			continue
-		}
-
-		_ = repo.AddTarget(ctx, normalized)
 	}
 }
 
