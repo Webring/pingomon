@@ -69,12 +69,17 @@ func runPing(ctx context.Context, repo *storage.CheckRepository, targetURL strin
 		errMsg = res.Err.Error()
 	}
 
+	success := res.Err == nil && res.StatusCode >= 200 && res.StatusCode < 400
+	if !success && errMsg == "" && res.StatusCode > 0 {
+		errMsg = fmt.Sprintf("HTTP %d", res.StatusCode)
+	}
+
 	if insertErr := repo.InsertCheck(
 		time.Now().UTC(),
 		targetURL,
 		ip,
 		2,
-		true,
+		success,
 		float64(res.Duration),
 		uint16(res.StatusCode),
 		errMsg,

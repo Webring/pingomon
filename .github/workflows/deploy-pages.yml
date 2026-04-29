@@ -1,0 +1,59 @@
+name: Deploy Web App To GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy-pages.yml
+      - cmd/webapp_static/index.html
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build static web app
+        env:
+          WEBAPP_API_BASE_URL: ${{ vars.WEBAPP_API_BASE_URL }}
+        run: |
+          mkdir -p dist
+          cp cmd/webapp_static/index.html dist/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          api_base_url = os.environ.get("WEBAPP_API_BASE_URL", "").rstrip("/")
+          path = Path("dist/index.html")
+          content = path.read_text(encoding="utf-8")
+          content = content.replace("__API_BASE_URL__", api_base_url)
+          path.write_text(content, encoding="utf-8")
+          Path("dist/.nojekyll").write_text("", encoding="utf-8")
+          PY
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

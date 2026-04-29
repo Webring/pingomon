@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pingomon Dashboard</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: rgba(255, 252, 247, 0.92);
+      --panel-strong: #fffaf2;
+      --ink: #1d232b;
+      --muted: #6a7078;
+      --line: rgba(29, 35, 43, 0.08);
+      --accent: #d7642a;
+      --accent-soft: rgba(215, 100, 42, 0.14);
+      --ok: #18895b;
+      --bad: #c13f34;
+      --shadow: 0 18px 50px rgba(77, 45, 21, 0.12);
+      --radius: 24px;
+      --font: "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(215, 100, 42, 0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(24, 137, 91, 0.12), transparent 24%),
+        linear-gradient(180deg, #f9f5ee 0%, var(--bg) 100%);
+    }
+
+    .shell {
+      width: min(1120px, calc(100vw - 24px));
+      margin: 0 auto;
+      padding: 18px 0 28px;
+    }
+
+    .hero, .card {
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.6);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 22px;
+      margin-bottom: 18px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 6vw, 48px);
+      line-height: 0.96;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      max-width: 760px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .toolbar .card {
+      padding: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      background: var(--panel-strong);
+      color: var(--ink);
+    }
+
+    .ranges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .ranges button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font: inherit;
+      font-weight: 700;
+      background: #efe7da;
+      color: var(--ink);
+    }
+
+    .ranges button.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .stat {
+      padding: 18px;
+    }
+
+    .stat small {
+      display: block;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .stat strong {
+      font-size: clamp(22px, 4vw, 34px);
+      line-height: 1;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.45fr 0.95fr;
+      gap: 18px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+    }
+
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chart-card, .table-card {
+      padding: 18px;
+    }
+
+    .svg-wrap {
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(244,239,230,0.8));
+      border: 1px solid var(--line);
+      padding: 8px;
+    }
+
+    svg {
+      width: 100%;
+      height: 320px;
+      display: block;
+    }
+
+    .axis {
+      stroke: rgba(29, 35, 43, 0.18);
+      stroke-width: 1;
+    }
+
+    .gridline {
+      stroke: rgba(29, 35, 43, 0.08);
+      stroke-dasharray: 4 6;
+    }
+
+    .series {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .series-availability {
+      fill: rgba(24, 137, 91, 0.14);
+      stroke: var(--ok);
+      stroke-width: 2.5;
+    }
+
+    .point-fail {
+      fill: var(--bad);
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-right: 7px;
+      vertical-align: -1px;
+    }
+
+    .legend .latency::before { background: var(--accent); }
+    .legend .fail::before { background: var(--bad); }
+    .legend .uptime::before { background: var(--ok); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.ok {
+      background: rgba(24, 137, 91, 0.12);
+      color: var(--ok);
+    }
+
+    .badge.bad {
+      background: rgba(193, 63, 52, 0.12);
+      color: var(--bad);
+    }
+
+    .empty, .loading {
+      padding: 40px 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      .toolbar, .stats, .grid {
+        grid-template-columns: 1fr;
+      }
+      svg { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Pingomon</p>
+      <h1>Метрики и инциденты<br>в одном окне</h1>
+      <p id="hero-text">Загружаю данные мониторинга…</p>
+    </section>
+
+    <section class="toolbar">
+      <div class="card">
+        <label for="target-select">Адрес</label>
+        <select id="target-select"></select>
+      </div>
+      <div class="card">
+        <label>Период</label>
+        <div class="ranges" id="ranges"></div>
+      </div>
+    </section>
+
+    <section class="stats" id="stats"></section>
+
+    <section class="grid">
+      <article class="card chart-card">
+        <h2>Задержка</h2>
+        <p class="sub">Каждая точка это отдельная HTTP-проверка.</p>
+        <div class="svg-wrap"><svg id="latency-chart" viewBox="0 0 760 320" preserveAspectRatio="none"></svg></div>
+        <div class="legend">
+          <span class="latency">Линия задержки</span>
+          <span class="fail">Ошибочные проверки</span>
+        </div>
+      </article>
+
+      <article class="card chart-card">
+        <h2>Доступность</h2>
+        <p class="sub">1.0 означает успешный ответ, 0.0 означает сбой.</p>
+        <div class="svg-wrap"><svg id="availability-chart" viewBox="0 0 520 320" preserveAspectRatio="none"></svg></div>
+        <div class="legend">
+          <span class="uptime">Доступность</span>
+        </div>
+      </article>
+
+      <article class="card table-card" style="grid-column: 1 / -1;">
+        <h2>История инцидентов</h2>
+        <p class="sub">Инцидент это непрерывная серия неуспешных проверок.</p>
+        <div id="incidents"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const ranges = [
+      { label: "6 ч", hours: 6 },
+      { label: "24 ч", hours: 24 },
+      { label: "3 д", hours: 72 },
+      { label: "7 д", hours: 168 }
+    ];
+
+    let state = { hours: 24, target: "" };
+
+    const heroText = document.getElementById("hero-text");
+    const targetSelect = document.getElementById("target-select");
+    const rangesRoot = document.getElementById("ranges");
+    const statsRoot = document.getElementById("stats");
+    const incidentsRoot = document.getElementById("incidents");
+
+    ranges.forEach((item) => {
+      const button = document.createElement("button");
+      button.textContent = item.label;
+      button.addEventListener("click", () => {
+        state.hours = item.hours;
+        renderRanges();
+        loadDashboard();
+      });
+      button.dataset.hours = item.hours;
+      rangesRoot.appendChild(button);
+    });
+
+    targetSelect.addEventListener("change", () => {
+      state.target = targetSelect.value;
+      loadDashboard();
+    });
+
+    function renderRanges() {
+      [...rangesRoot.children].forEach((button) => {
+        button.classList.toggle("active", Number(button.dataset.hours) === state.hours);
+      });
+    }
+
+    function getInitData() {
+      if (tg && tg.initData) return tg.initData;
+      return "";
+    }
+
+    async function loadDashboard() {
+      statsRoot.innerHTML = '<article class="card stat loading" style="grid-column: 1 / -1;">Обновляю графики…</article>';
+      incidentsRoot.innerHTML = '<div class="loading">Загружаю историю инцидентов…</div>';
+
+      const params = new URLSearchParams({ hours: String(state.hours) });
+      if (state.target) params.set("target", state.target);
+
+      const response = await fetch("/api/dashboard?" + params.toString(), {
+        headers: {
+          "X-Telegram-Init-Data": getInitData()
+        }
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        heroText.textContent = "Не удалось авторизовать Telegram Web App.";
+        statsRoot.innerHTML = `<article class="card stat empty" style="grid-column: 1 / -1;">${escapeHTML(message)}</article>`;
+        incidentsRoot.innerHTML = '<div class="empty">Нет данных.</div>';
+        drawEmpty("latency-chart", "Нет данных");
+        drawEmpty("availability-chart", "Нет данных");
+        return;
+      }
+
+      const data = await response.json();
+      applyDashboard(data);
+    }
+
+    function applyDashboard(data) {
+      heroText.textContent = data.user_label
+        ? `Показываю подписки пользователя ${data.user_label}.`
+        : "Показываю подписки текущего пользователя.";
+
+      syncTargets(data.targets, data.selected_target);
+      renderStats(data.summary);
+      renderIncidents(data.incidents);
+      drawLatency(data.series);
+      drawAvailability(data.series);
+    }
+
+    function syncTargets(targets, selectedTarget) {
+      state.target = selectedTarget || "";
+      targetSelect.innerHTML = "";
+      if (!targets.length) {
+        const option = document.createElement("option");
+        option.textContent = "Нет подписок";
+        option.value = "";
+        targetSelect.appendChild(option);
+        return;
+      }
+      targets.forEach((target) => {
+        const option = document.createElement("option");
+        option.value = target;
+        option.textContent = target;
+        option.selected = target === selectedTarget;
+        targetSelect.appendChild(option);
+      });
+    }
+
+    function renderStats(summary) {
+      const cards = [
+        { label: "Успешность", value: summary.availability_pct != null ? `${summary.availability_pct.toFixed(1)}%` : "—" },
+        { label: "Средняя задержка", value: summary.avg_latency_ms != null ? `${summary.avg_latency_ms.toFixed(1)} ms` : "—" },
+        { label: "Инциденты", value: `${summary.incident_count}` },
+        { label: "Активные сбои", value: `${summary.ongoing_incidents}` }
+      ];
+
+      statsRoot.innerHTML = cards.map((card) => `
+        <article class="card stat">
+          <small>${escapeHTML(card.label)}</small>
+          <strong>${escapeHTML(card.value)}</strong>
+        </article>
+      `).join("");
+    }
+
+    function renderIncidents(incidents) {
+      if (!incidents.length) {
+        incidentsRoot.innerHTML = '<div class="empty">За выбранный период инцидентов не было.</div>';
+        return;
+      }
+
+      const rows = incidents.map((incident) => `
+        <tr>
+          <td><span class="badge ${incident.ongoing ? "bad" : "ok"}">${incident.ongoing ? "Идёт сейчас" : "Восстановлен"}</span></td>
+          <td>${formatDateTime(incident.started_at)}</td>
+          <td>${incident.resolved_at ? formatDateTime(incident.resolved_at) : "—"}</td>
+          <td>${formatDuration(incident.started_at, incident.resolved_at || incident.last_seen_at)}</td>
+          <td>${incident.failed_checks}</td>
+          <td>${escapeHTML(incident.last_error || "—")}</td>
+        </tr>
+      `).join("");
+
+      incidentsRoot.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Статус</th>
+              <th>Начало</th>
+              <th>Конец</th>
+              <th>Длительность</th>
+              <th>Сбоев</th>
+              <th>Последняя ошибка</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function drawLatency(points) {
+      const svg = document.getElementById("latency-chart");
+      if (!points.length) {
+        drawEmpty("latency-chart", "Нет точек");
+        return;
+      }
+
+      const width = 760;
+      const height = 320;
+      const padding = { top: 20, right: 22, bottom: 28, left: 36 };
+      const xs = points.map((point) => new Date(point.ts).getTime());
+      const ys = points.map((point) => Math.max(point.latency_ms || 0, 0));
+      const maxY = Math.max(...ys, 1);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const safeX = maxX === minX ? maxX + 1 : maxX;
+
+      const scaleX = (value) => padding.left + ((value - minX) / (safeX - minX)) * (width - padding.left - padding.right);
+      const scaleY = (value) => height - padding.bottom - (value / maxY) * (height - padding.top - padding.bottom);
+
+      const polyline = points.map((point) => `${scaleX(new Date(point.ts).getTime())},${scaleY(point.latency_ms || 0)}`).join(" ");
+      const failDots = points.filter((point) => !point.success).map((point) =>
+        `<circle class="point-fail" cx="${scaleX(new Date(point.ts).getTime())}" cy="${scaleY(point.latency_ms || 0)}" r="4"></circle>`
+      ).join("");
+
+      svg.innerHTML = gridMarkup(width, height, padding, 4) +
+        `<polyline class="series" points="${polyline}"></polyline>` +
+        failDots;
+    }
+
+    function drawAvailability(points) {
+      const svg = document.getElementById("availability-chart");
+      if (!points.length) {
+        drawEmpty("availability-chart", "Нет точек");
+        return;
+      }
+
+      const width = 520;
+      const height = 320;
+      const padding = { top: 20, right: 22, bottom: 28, left: 36 };
+      const xs = points.map((point) => new Date(point.ts).getTime());
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const safeX = maxX === minX ? maxX + 1 : maxX;
+
+      const scaleX = (value) => padding.left + ((value - minX) / (safeX - minX)) * (width - padding.left - padding.right);
+      const scaleY = (value) => height - padding.bottom - value * (height - padding.top - padding.bottom);
+
+      const line = points.map((point) => `${scaleX(new Date(point.ts).getTime())},${scaleY(point.success ? 1 : 0)}`).join(" ");
+      const area = `M ${scaleX(new Date(points[0].ts).getTime())} ${scaleY(0)} L ` +
+        points.map((point) => `${scaleX(new Date(point.ts).getTime())} ${scaleY(point.success ? 1 : 0)}`).join(" L ") +
+        ` L ${scaleX(new Date(points[points.length - 1].ts).getTime())} ${scaleY(0)} Z`;
+
+      svg.innerHTML = gridMarkup(width, height, padding, 2) +
+        `<path class="series-availability" d="${area}"></path>` +
+        `<polyline class="series-availability" fill="none" points="${line}"></polyline>`;
+    }
+
+    function drawEmpty(id, text) {
+      const svg = document.getElementById(id);
+      svg.innerHTML = `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#6a7078" font-size="16">${escapeHTML(text)}</text>`;
+    }
+
+    function gridMarkup(width, height, padding, steps) {
+      const lines = [];
+      for (let i = 0; i <= steps; i++) {
+        const y = padding.top + ((height - padding.top - padding.bottom) / steps) * i;
+        lines.push(`<line class="gridline" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line>`);
+      }
+      lines.push(`<line class="axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>`);
+      lines.push(`<line class="axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>`);
+      return lines.join("");
+    }
+
+    function formatDateTime(value) {
+      return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(value));
+    }
+
+    function formatDuration(start, end) {
+      const diffSec = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
+      const hours = Math.floor(diffSec / 3600);
+      const minutes = Math.floor((diffSec % 3600) / 60);
+      if (hours > 0) return `${hours} ч ${minutes} мин`;
+      return `${minutes} мин`;
+    }
+
+    function escapeHTML(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    renderRanges();
+    loadDashboard().catch((err) => {
+      heroText.textContent = "Не удалось загрузить dashboard.";
+      statsRoot.innerHTML = `<article class="card stat empty" style="grid-column: 1 / -1;">${escapeHTML(err.message)}</article>`;
+      incidentsRoot.innerHTML = '<div class="empty">Нет данных.</div>';
+      drawEmpty("latency-chart", "Ошибка");
+      drawEmpty("availability-chart", "Ошибка");
+    });
+  </script>
+</body>
+</html>

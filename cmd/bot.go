@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -86,6 +88,19 @@ func main() {
 		slog.Info("Received command", "user", user, "id", tgID, "text", update.Message.Text)
 
 		switch update.Message.Command() {
+		case "app":
+			if strings.TrimSpace(cfg.WebAppBaseURL) == "" {
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ WEBAPP_BASE_URL не настроен."))
+				continue
+			}
+
+			if err := sendWebAppMessage(bot, update.Message.Chat.ID, cfg.WebAppBaseURL); err != nil {
+				slog.Error("send webapp button", "err", err, "user", user)
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
+					"❌ Не удалось открыть Web App."))
+			}
+
 		case "stats":
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			targets, err := targetRepo.ListUserSubscriptions(ctx, tgID)
@@ -116,6 +131,12 @@ func main() {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, text)
 			msg.ParseMode = "Markdown"
 			bot.Send(msg)
+
+			if strings.TrimSpace(cfg.WebAppBaseURL) != "" {
+				if err := sendWebAppMessage(bot, update.Message.Chat.ID, cfg.WebAppBaseURL); err != nil {
+					slog.Error("send webapp shortcut", "err", err, "user", user)
+				}
+			}
 
 			slog.Info("Sent stats", "user", user)
 
@@ -199,7 +220,7 @@ func main() {
 				"✅ Подписка удалена."))
 
 		default:
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "ℹ️ Доступные команды:\n/stats — показать статистику по своим адресам\n/add <url> — добавить адрес для мониторинга\n/subs — показать твои подписки\n/del <url> — удалить подписку")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "ℹ️ Доступные команды:\n/stats — показать статистику по своим адресам\n/app — открыть Web App с графиками и инцидентами\n/add <url> — добавить адрес для мониторинга\n/subs — показать твои подписки\n/del <url> — удалить подписку")
 			bot.Send(msg)
 		}
 	}
@@ -275,4 +296,39 @@ func formatStats(stats []PingStat) string {
 			s.Addr, s.Avg, s.Min, s.Max)
 	}
 	return msg
+}
+
+func sendWebAppMessage(bot *tgbotapi.BotAPI, chatID int64, baseURL string) error {
+	replyMarkup := map[string]any{
+		"inline_keyboard": [][]map[string]any{
+			{
+				{
+					"text": "Открыть dashboard",
+					"web_app": map[string]string{
+						"url": strings.TrimRight(baseURL, "/"),
+					},
+				},
+			},
+		},
+	}
+
+	markupJSON, err := json.Marshal(replyMarkup)
+	if err != nil {
+		return fmt.Errorf("marshal reply markup: %w", err)
+	}
+
+	params := tgbotapi.Params{
+		"chat_id":      strconv.FormatInt(chatID, 10),
+		"text":         "📈 Открой Web App для графиков метрик и истории инцидентов.",
+		"reply_markup": string(markupJSON),
+	}
+
+	resp, err := bot.MakeRequest("sendMessage", params)
+	if err != nil {
+		return fmt.Errorf("telegram request: %w", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("telegram api error: %s", resp.Description)
+	}
+	return nil
 }

@@ -125,9 +125,9 @@ func fetchErrorReports(ctx context.Context, conn clickhouse.Conn, from time.Time
 			count() AS cnt,
 			min(ts) AS first_at,
 			max(ts) AS last_at,
-			arrayDistinct(groupArray(err)) AS errs
+			arrayDistinct(groupArray(if(err != '', err, concat('HTTP ', toString(http_code))))) AS errs
 		FROM pingomon.checks
-		WHERE ts >= @from AND err != ''
+		WHERE ts >= @from AND success = 0
 		GROUP BY addr
 		HAVING cnt > 0
 	`
