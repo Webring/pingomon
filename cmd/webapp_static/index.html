@@ -120,6 +120,7 @@
       </article>
     </section>
   </main>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     const API_BASE_URL = "__API_BASE_URL__";
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
@@ -140,7 +141,16 @@
     });
     targetSelect.addEventListener("change", () => { state.target = targetSelect.value; loadDashboard(); });
     function renderRanges() { [...rangesRoot.children].forEach((button) => button.classList.toggle("active", Number(button.dataset.hours) === state.hours)); }
-    function getInitData() { return tg && tg.initData ? tg.initData : ""; }
+    function getHashParam(name) {
+      const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
+      const params = new URLSearchParams(hash);
+      return params.get(name) || "";
+    }
+    function getInitData() {
+      if (tg && tg.initData) return tg.initData;
+      const raw = getHashParam("tgWebAppData");
+      return raw ? decodeURIComponent(raw) : "";
+    }
     function getDashboardURL(params) {
       const path = "/api/dashboard?" + params.toString();
       return API_BASE_URL ? API_BASE_URL + path : path;

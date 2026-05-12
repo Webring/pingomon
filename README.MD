@@ -23,7 +23,7 @@ cp ./deploy/.env.example ./deploy/.env
 В файле `.env` нужно заполнить данные, особенно обратить внимание на строки, где есть `#change`.
 Добавлены настройки Postgres (`POSTGRES_*`, `POSTGRES_DSN`) — туда бот кладет новые адреса.
 Для алертов есть настройки `NOTIFY_WINDOW_MINUTES` и `NOTIFY_POLL_SECONDS`.
-Для Telegram Web App нужно указать публичный `WEBAPP_BASE_URL`, а локальный адрес сервиса настраивается через `WEBAPP_LISTEN_ADDR`.
+Для Telegram Web App нужно указать публичный `WEBAPP_BASE_URL`, а локальный адрес API настраивается через `WEBAPP_LISTEN_ADDR`.
 Если страница и API живут на разных доменах, задай:
 `WEBAPP_API_BASE_URL=https://api.mydomain.com`
 `WEBAPP_ALLOWED_ORIGIN=https://webapp.mydomain.com`
@@ -38,6 +38,7 @@ cp ./deploy/.env.example ./deploy/.env
 - В `deploy/.env` для backend указать `WEBAPP_ALLOWED_ORIGIN` на домен Pages или на привязанный кастомный домен, например `https://webring.github.io` или `https://webapp.mydomain.com`.
 
 После пуша в `main` workflow соберет статическую страницу и выложит ее на GitHub Pages.
+Go-сервис на `WEBAPP_LISTEN_ADDR` теперь отдает только API и не раздает HTML-страницу.
 
 ### 3. Применить миграции и подготовить базу данных
 ```

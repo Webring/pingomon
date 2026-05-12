@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -18,9 +17,6 @@ import (
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
-
-//go:embed webapp_static/index.html
-var staticFiles embed.FS
 
 type dashboardSummary struct {
 	AvailabilityPct  float64  `json:"availability_pct"`
@@ -71,14 +67,13 @@ func main() {
 	}
 
 	checkRepo := storage.NewCheckRepository(chConn)
-	apiBaseURL := strings.TrimRight(strings.TrimSpace(cfg.WebAppAPIBaseURL), "/")
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveIndex(w, r, apiBaseURL)
-	})
 	mux.HandleFunc("/api/dashboard", func(w http.ResponseWriter, r *http.Request) {
 		handleDashboard(w, r, cfg, targetRepo, checkRepo)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
 	})
 
 	server := &http.Server{
@@ -92,18 +87,6 @@ func main() {
 		slog.Error("web app stopped", "err", err)
 		os.Exit(1)
 	}
-}
-
-func serveIndex(w http.ResponseWriter, _ *http.Request, apiBaseURL string) {
-	content, err := staticFiles.ReadFile("webapp_static/index.html")
-	if err != nil {
-		http.Error(w, "failed to load web app", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	page := strings.ReplaceAll(string(content), "__API_BASE_URL__", apiBaseURL)
-	_, _ = w.Write([]byte(page))
 }
 
 func handleDashboard(w http.ResponseWriter, r *http.Request, cfg config.Config, targetRepo *storage.TargetRepository, checkRepo *storage.CheckRepository) {
