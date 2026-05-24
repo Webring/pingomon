@@ -53,6 +53,8 @@
     .stat { padding: 18px; }
     .stat small { display: block; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-bottom: 10px; }
     .stat strong { font-size: clamp(22px, 4vw, 34px); line-height: 1; }
+    .status-ok { color: var(--ok); }
+    .status-bad { color: var(--bad); }
     .grid { display: grid; grid-template-columns: 1.45fr 0.95fr; gap: 18px; }
     .card h2 { margin: 0 0 8px; font-size: 20px; }
     .sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
@@ -60,6 +62,8 @@
     .svg-wrap { border-radius: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(244,239,230,0.8)); border: 1px solid var(--line); padding: 8px; }
     svg { width: 100%; height: 320px; display: block; }
     .axis { stroke: rgba(29, 35, 43, 0.18); stroke-width: 1; }
+    .tick { stroke: rgba(29, 35, 43, 0.24); stroke-width: 1; }
+    .tick-label { fill: var(--muted); font-size: 12px; font-weight: 700; }
     .gridline { stroke: rgba(29, 35, 43, 0.08); stroke-dasharray: 4 6; }
     .series { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
     .series-availability { fill: rgba(24, 137, 91, 0.14); stroke: var(--ok); stroke-width: 2.5; }
@@ -175,7 +179,7 @@
     function applyDashboard(data) {
       heroText.textContent = data.user_label ? `Показываю подписки пользователя ${data.user_label}.` : "Показываю подписки текущего пользователя.";
       syncTargets(data.targets, data.selected_target);
-      renderStats(data.summary);
+      renderStats(data.summary, data.series);
       renderIncidents(data.incidents);
       drawLatency(data.series);
       drawAvailability(data.series);
@@ -198,14 +202,16 @@
         targetSelect.appendChild(option);
       });
     }
-    function renderStats(summary) {
+    function renderStats(summary, points) {
+      const lastPoint = points.length ? points[points.length - 1] : null;
+      const status = lastPoint && lastPoint.success ? "Работает" : "Не работает";
       const cards = [
         { label: "Успешность", value: `${Number(summary.availability_pct || 0).toFixed(1)}%` },
         { label: "Средняя задержка", value: summary.avg_latency_ms != null ? `${Number(summary.avg_latency_ms).toFixed(1)} ms` : "—" },
         { label: "Инциденты", value: `${summary.incident_count}` },
-        { label: "Активные сбои", value: `${summary.ongoing_incidents}` }
+        { label: "Статус", value: lastPoint ? status : "Нет данных", tone: lastPoint && lastPoint.success ? "ok" : "bad" }
       ];
-      statsRoot.innerHTML = cards.map((card) => `<article class="card stat"><small>${escapeHTML(card.label)}</small><strong>${escapeHTML(card.value)}</strong></article>`).join("");
+      statsRoot.innerHTML = cards.map((card) => `<article class="card stat"><small>${escapeHTML(card.label)}</small><strong class="${card.tone ? `status-${card.tone}` : ""}">${escapeHTML(card.value)}</strong></article>`).join("");
     }
     function renderIncidents(incidents) {
       if (!incidents.length) {
@@ -218,7 +224,7 @@
     function drawLatency(points) {
       const svg = document.getElementById("latency-chart");
       if (!points.length) return drawEmpty("latency-chart", "Нет точек");
-      const width = 760, height = 320, padding = { top: 20, right: 22, bottom: 28, left: 36 };
+      const width = 760, height = 320, padding = { top: 20, right: 24, bottom: 44, left: 58 };
       const xs = points.map((point) => new Date(point.ts).getTime());
       const ys = points.map((point) => Math.max(point.latency_ms || 0, 0));
       const maxY = Math.max(...ys, 1), minX = Math.min(...xs), maxX = Math.max(...xs), safeX = maxX === minX ? maxX + 1 : maxX;
@@ -226,30 +232,48 @@
       const scaleY = (value) => height - padding.bottom - (value / maxY) * (height - padding.top - padding.bottom);
       const polyline = points.map((point) => `${scaleX(new Date(point.ts).getTime())},${scaleY(point.latency_ms || 0)}`).join(" ");
       const failDots = points.filter((point) => !point.success).map((point) => `<circle class="point-fail" cx="${scaleX(new Date(point.ts).getTime())}" cy="${scaleY(point.latency_ms || 0)}" r="4"></circle>`).join("");
-      svg.innerHTML = gridMarkup(width, height, padding, 4) + `<polyline class="series" points="${polyline}"></polyline>` + failDots;
+      svg.innerHTML = gridMarkup(width, height, padding, 4, maxY, "ms", minX, safeX) + `<polyline class="series" points="${polyline}"></polyline>` + failDots;
     }
     function drawAvailability(points) {
       const svg = document.getElementById("availability-chart");
       if (!points.length) return drawEmpty("availability-chart", "Нет точек");
-      const width = 520, height = 320, padding = { top: 20, right: 22, bottom: 28, left: 36 };
+      const width = 520, height = 320, padding = { top: 20, right: 24, bottom: 44, left: 58 };
       const xs = points.map((point) => new Date(point.ts).getTime());
       const minX = Math.min(...xs), maxX = Math.max(...xs), safeX = maxX === minX ? maxX + 1 : maxX;
       const scaleX = (value) => padding.left + ((value - minX) / (safeX - minX)) * (width - padding.left - padding.right);
       const scaleY = (value) => height - padding.bottom - value * (height - padding.top - padding.bottom);
       const line = points.map((point) => `${scaleX(new Date(point.ts).getTime())},${scaleY(point.success ? 1 : 0)}`).join(" ");
       const area = `M ${scaleX(new Date(points[0].ts).getTime())} ${scaleY(0)} L ` + points.map((point) => `${scaleX(new Date(point.ts).getTime())} ${scaleY(point.success ? 1 : 0)}`).join(" L ") + ` L ${scaleX(new Date(points[points.length - 1].ts).getTime())} ${scaleY(0)} Z`;
-      svg.innerHTML = gridMarkup(width, height, padding, 2) + `<path class="series-availability" d="${area}"></path>` + `<polyline class="series-availability" fill="none" points="${line}"></polyline>`;
+      svg.innerHTML = gridMarkup(width, height, padding, 2, 1, "", minX, safeX) + `<path class="series-availability" d="${area}"></path>` + `<polyline class="series-availability" fill="none" points="${line}"></polyline>`;
     }
     function drawEmpty(id, text) { document.getElementById(id).innerHTML = `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#6a7078" font-size="16">${escapeHTML(text)}</text>`; }
-    function gridMarkup(width, height, padding, steps) {
+    function gridMarkup(width, height, padding, steps, maxY, suffix, minX, maxX) {
       const lines = [];
       for (let i = 0; i <= steps; i++) {
         const y = padding.top + ((height - padding.top - padding.bottom) / steps) * i;
         lines.push(`<line class="gridline" x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}"></line>`);
+        lines.push(`<line class="tick" x1="${padding.left - 5}" y1="${y}" x2="${padding.left}" y2="${y}"></line>`);
+        lines.push(`<text class="tick-label" x="${padding.left - 10}" y="${y + 4}" text-anchor="end">${formatAxisNumber(maxY - (maxY / steps) * i)}${suffix}</text>`);
+      }
+      const xSteps = 3;
+      for (let i = 0; i <= xSteps; i++) {
+        const ratio = i / xSteps;
+        const x = padding.left + (width - padding.left - padding.right) * ratio;
+        const value = minX + (maxX - minX) * ratio;
+        lines.push(`<line class="tick" x1="${x}" y1="${height - padding.bottom}" x2="${x}" y2="${height - padding.bottom + 5}"></line>`);
+        lines.push(`<text class="tick-label" x="${x}" y="${height - padding.bottom + 22}" text-anchor="middle">${formatAxisTime(value)}</text>`);
       }
       lines.push(`<line class="axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>`);
       lines.push(`<line class="axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>`);
       return lines.join("");
+    }
+    function formatAxisNumber(value) {
+      if (value >= 100) return Math.round(value);
+      if (value >= 10) return value.toFixed(1);
+      return value.toFixed(2);
+    }
+    function formatAxisTime(value) {
+      return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
     }
     function formatDateTime(value) { return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }
     function formatDuration(start, end) {

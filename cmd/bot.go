@@ -132,12 +132,6 @@ func main() {
 			msg.ParseMode = "Markdown"
 			bot.Send(msg)
 
-			if strings.TrimSpace(cfg.WebAppBaseURL) != "" {
-				if err := sendWebAppMessage(bot, update.Message.Chat.ID, cfg.WebAppBaseURL); err != nil {
-					slog.Error("send webapp shortcut", "err", err, "user", user)
-				}
-			}
-
 			slog.Info("Sent stats", "user", user)
 
 		case "add":
